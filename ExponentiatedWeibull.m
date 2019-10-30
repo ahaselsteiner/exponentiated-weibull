@@ -4,19 +4,19 @@ classdef ExponentiatedWeibull < handle
    properties
       Alpha % Scale parameter.
       Beta % Shape parameter #1.
-      ShapeTwo % Shape parameter #2.
+      Delta % Shape parameter #2.
    end
    
    methods
-      function obj = ExponentiatedWeibull(alpha, beta, shapeTwo)
+      function obj = ExponentiatedWeibull(alpha, beta, delta)
          if nargin > 2
             obj.Alpha = alpha; 
             obj.Beta = beta; 
-            obj.ShapeTwo = shapeTwo; 
+            obj.Delta = delta; 
          end
       end
       
-      function parmHat = fitDist(this, sample, method)
+      function [pHat pConfI] = fitDist(this, sample, method)
           if nargin < 2
               method = 'MLE'; % Maximum likelihood estimation.
           end
@@ -24,8 +24,8 @@ classdef ExponentiatedWeibull < handle
               start = [1 1 5.001];
               lb = [0 0 0];
               ub = [100 100 100]; % MLE does not not converge for dataset A with limit (inf inf inf).
-              parmHat = mle(sample, 'pdf', @(x, alpha, beta, shapeTwo) ...
-                  this.pdf(sample, alpha, beta, shapeTwo), ...
+              [pHat pConfI] = mle(sample, 'pdf', @(x, alpha, beta, delta) ...
+                  this.pdf(sample, alpha, beta, delta), ...
                   'start', start, 'lower', lb, 'upper', ub);
           elseif method == 'WLS' % Weighted least squares.
               n = length(sample);
@@ -33,41 +33,49 @@ classdef ExponentiatedWeibull < handle
               pi = (i - 0.5) ./ n;
               xi = sort(sample);
               shapeTwo0 = 2;
-              [shapeTwoHat SQR_min] = fminsearch(@(shapeTwo) ...
-                  estimateAlphaBetaWithWLS(shapeTwo, xi, pi), shapeTwo0);
-              [temp parmHat] = estimateAlphaBetaWithWLS(shapeTwoHat, xi, pi);
+              [shapeTwoHat SQR_min] = fminsearch(@(delta) ...
+                  estimateAlphaBetaWithWLS(delta, xi, pi), shapeTwo0);
+              [temp pHat] = estimateAlphaBetaWithWLS(shapeTwoHat, xi, pi);
           else
               error('Error. The input "method" must be either "MLE" or "WLS".')
           end
-          this.Alpha = parmHat(1);
-          this.Beta = parmHat(2);
-          this.ShapeTwo = parmHat(3);
+          this.Alpha = pHat(1);
+          this.Beta = pHat(2);
+          this.Delta = pHat(3);
       end
       
-      function f = pdf(this, x, alpha, beta, shapeTwo)
+      function f = pdf(this, x, alpha, beta, delta)
           % Probability density function.
-          pdf = @(x, alpha, beta, shapeTwo) shapeTwo .* beta ./ alpha .* (x ./ alpha).^(beta - 1) ...
-                .* (1 - exp(-1 * (x ./ alpha).^beta)).^(shapeTwo - 1) .* exp(-1 .* (x ./ alpha).^beta);
+          pdf = @(x, alpha, beta, delta) delta .* beta ./ alpha .* (x ./ alpha).^(beta - 1) ...
+                .* (1 - exp(-1 * (x ./ alpha).^beta)).^(delta - 1) .* exp(-1 .* (x ./ alpha).^beta);
           if nargin < 3
-              f = pdf(x, this.Alpha, this.Beta, this.ShapeTwo);
+              f = pdf(x, this.Alpha, this.Beta, this.Delta);
           else
-              f = pdf(x, alpha, beta, shapeTwo);
+              f = pdf(x, alpha, beta, delta);
           end              
       end
       
       function F = cdf(this, x)
           % Cumulative distribution function.
-          F = (1 - exp( -1 .* (x ./ this.Alpha).^this.Beta)).^this.ShapeTwo;
+          F = (1 - exp( -1 .* (x ./ this.Alpha).^this.Beta)).^this.Delta;
       end
       
       function x = icdf(this, p)
           % Inverse cumulative distribution function.
-          x = this.Alpha * (-1 * log(1 - p.^(1 ./ this.ShapeTwo))).^(1 ./ this.Beta);
+          x = this.Alpha .* (-1 .* log(1 - p.^(1 ./ this.Delta))).^(1 ./ this.Beta);
+      end
+      
+      function x = drawSample(this, n)
+          if n < 2
+              n = 1;
+          end
+          p = rand(n, 1);
+          x = this.icdf(p);
       end
       
       function val = negativeloglikelihood(this, x)
           % Negative log-likelihood value (as a metric of goodness of fit).
-          val = sum(-log(pdf(x, this.Alpha, this.Beta, this.ShapeTwo)));
+          val = sum(-log(pdf(x, this.Alpha, this.Beta, this.Delta)));
       end
       
       function mae = meanabsoluteerror(this, sample, pi)
@@ -106,10 +114,10 @@ classdef ExponentiatedWeibull < handle
    end
 end
 
-function [SQR, parmHat] = estimateAlphaBetaWithWLS(shapeTwo, hsi, pi) 
+function [SQR, pHat] = estimateAlphaBetaWithWLS(delta, hsi, pi) 
     % Transform variables to Weibull paper [see, Scholz (2008), but in terms of notation switch "alpha" and "beta"]
     % First, transform the probability pi:
-    pstar_i = log10(-log(1 - pi.^(1 / shapeTwo)));
+    pstar_i = log10(-log(1 - pi.^(1 / delta)));
     % Then, transfoorm the significant wave height hsi:
     yi = log10(hsi);
 
@@ -117,7 +125,7 @@ function [SQR, parmHat] = estimateAlphaBetaWithWLS(shapeTwo, hsi, pi)
     wi = hsi.^2 / sum(hsi.^2);
 
     % Estimate the two Weibull parameters, alphahat and betahat
-    % shapeTwo
+    % delta
     pstarbar = sum(wi .* pstar_i);
     ybar = sum(wi .* yi);
     bhat = (sum(wi .* pstar_i .* yi) - pstarbar .* ybar) / ...
@@ -127,9 +135,9 @@ function [SQR, parmHat] = estimateAlphaBetaWithWLS(shapeTwo, hsi, pi)
     alphaHat = 10^ahat;
 
     % Create a distribution object and compute estimates hs_hat_WLS
-    hs_hat_WLS = alphaHat * (-1 * log(1 - pi.^(1 / shapeTwo))).^(1 / betaHat);
+    hs_hat_WLS = alphaHat * (-1 * log(1 - pi.^(1 / delta))).^(1 / betaHat);
 
     % Compute the weighted sum of square residuals
     SQR = sum(wi .* (hsi - hs_hat_WLS).^2);
-    parmHat = [alphaHat, betaHat, shapeTwo];
+    pHat = [alphaHat, betaHat, delta];
 end
