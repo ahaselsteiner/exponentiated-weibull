@@ -2,8 +2,8 @@ classdef ExponentiatedWeibull < handle
 % The exponentiated Weibull distribution is a 3-parameter 
 % probability distribution. See, e.g. https://en.wikipedia.org/wiki/Exponentiated_Weibull_distribution
    properties
-      Alpha % Shape parameter #1.
-      Beta % Scale parameter.
+      Alpha % Scale parameter.
+      Beta % Shape parameter #1.
       ShapeTwo % Shape parameter #2.
    end
    
@@ -46,8 +46,8 @@ classdef ExponentiatedWeibull < handle
       
       function f = pdf(this, x, alpha, beta, shapeTwo)
           % Probability density function.
-          pdf = @(x, alpha, beta, shapeTwo) shapeTwo .* alpha ./ beta .* (x ./ beta).^(alpha - 1) ...
-                .* (1 - exp(-1 * (x ./ beta).^alpha)).^(shapeTwo - 1) .* exp(-1 .* (x ./ beta).^alpha);
+          pdf = @(x, alpha, beta, shapeTwo) shapeTwo .* beta ./ alpha .* (x ./ alpha).^(beta - 1) ...
+                .* (1 - exp(-1 * (x ./ alpha).^beta)).^(shapeTwo - 1) .* exp(-1 .* (x ./ alpha).^beta);
           if nargin < 3
               f = pdf(x, this.Alpha, this.Beta, this.ShapeTwo);
           else
@@ -57,12 +57,12 @@ classdef ExponentiatedWeibull < handle
       
       function F = cdf(this, x)
           % Cumulative distribution function.
-          F = (1 - exp( -1 .* (x ./ this.Beta).^this.Alpha)).^this.ShapeTwo;
+          F = (1 - exp( -1 .* (x ./ this.Alpha).^this.Beta)).^this.ShapeTwo;
       end
       
       function x = icdf(this, p)
           % Inverse cumulative distribution function.
-          x = this.Beta * (-1 * log(1 - p.^(1 ./ this.ShapeTwo))).^(1 ./ this.Alpha);
+          x = this.Alpha * (-1 * log(1 - p.^(1 ./ this.ShapeTwo))).^(1 ./ this.Beta);
       end
       
       function val = negativeloglikelihood(this, x)
@@ -123,13 +123,13 @@ function [SQR, parmHat] = estimateAlphaBetaWithWLS(shapeTwo, hsi, pi)
     bhat = (sum(wi .* pstar_i .* yi) - pstarbar .* ybar) / ...
         (sum(wi .* pstar_i.^2) -  pstarbar^2);
     ahat = ybar - bhat * pstarbar;
-    alphahat = 1 / bhat;
-    betahat = 10^ahat;
+    betaHat = 1 / bhat;
+    alphaHat = 10^ahat;
 
     % Create a distribution object and compute estimates hs_hat_WLS
-    hs_hat_WLS = betahat * (-1 * log(1 - pi.^(1 / shapeTwo))).^(1 / alphahat);
+    hs_hat_WLS = alphaHat * (-1 * log(1 - pi.^(1 / shapeTwo))).^(1 / betaHat);
 
     % Compute the weighted sum of square residuals
     SQR = sum(wi .* (hsi - hs_hat_WLS).^2);
-    parmHat = [alphahat, betahat, shapeTwo];
+    parmHat = [alphaHat, betaHat, shapeTwo];
 end
