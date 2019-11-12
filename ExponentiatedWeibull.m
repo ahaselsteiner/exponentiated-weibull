@@ -32,10 +32,10 @@ classdef ExponentiatedWeibull < handle
               i = [1:n]';
               pi = (i - 0.5) ./ n;
               xi = sort(sample);
-              shapeTwo0 = 2;
-              [shapeTwoHat SQR_min] = fminsearch(@(delta) ...
-                  estimateAlphaBetaWithWLS(delta, xi, pi), shapeTwo0);
-              [temp pHat] = estimateAlphaBetaWithWLS(shapeTwoHat, xi, pi);
+              delta0 = 2;
+              [deltaHat, WLSError] = fminsearch(@(delta) ...
+                  estimateAlphaBetaWithWLS(delta, xi, pi), delta0);
+              [temp, pHat] = estimateAlphaBetaWithWLS(deltaHat, xi, pi);
           else
               error('Error. The input "method" must be either "MLE" or "WLS".')
           end
@@ -114,30 +114,27 @@ classdef ExponentiatedWeibull < handle
    end
 end
 
-function [SQR, pHat] = estimateAlphaBetaWithWLS(delta, hsi, pi) 
-    % Transform variables to Weibull paper [see, Scholz (2008), but in terms of notation switch "alpha" and "beta"]
-    % First, transform the probability pi:
+function [WLSError, pHat] = estimateAlphaBetaWithWLS(delta, xi, pi) 
+    % First, transform xi and pi to get a linear relationship.
+    xstar_i = log10(xi);
     pstar_i = log10(-log(1 - pi.^(1 / delta)));
-    % Then, transfoorm the significant wave height hsi:
-    yi = log10(hsi);
 
     % Define the weights.
-    wi = hsi.^2 / sum(hsi.^2);
+    wi = xi.^2 / sum(xi.^2);
 
-    % Estimate the two Weibull parameters, alphahat and betahat
-    % delta
+    % Estimate the parameters alphaHat and betaHat.
     pstarbar = sum(wi .* pstar_i);
-    ybar = sum(wi .* yi);
-    bhat = (sum(wi .* pstar_i .* yi) - pstarbar .* ybar) / ...
+    xstarbar = sum(wi .* xstar_i);
+    bHat = (sum(wi .* pstar_i .* xstar_i) - pstarbar .* xstarbar) / ...
         (sum(wi .* pstar_i.^2) -  pstarbar^2);
-    ahat = ybar - bhat * pstarbar;
-    betaHat = 1 / bhat;
-    alphaHat = 10^ahat;
-
-    % Create a distribution object and compute estimates hs_hat_WLS
-    hs_hat_WLS = alphaHat * (-1 * log(1 - pi.^(1 / delta))).^(1 / betaHat);
-
-    % Compute the weighted sum of square residuals
-    SQR = sum(wi .* (hsi - hs_hat_WLS).^2);
+    aHat = xstarbar - bHat * pstarbar;
+    alphaHat = 10^aHat;
+    betaHat = 1 / bHat;
     pHat = [alphaHat, betaHat, delta];
+    
+    % Compute the weighted least squares error.
+    xiHat = alphaHat * (-1 * log(1 - pi.^(1 / delta))).^(1 / betaHat);
+    WLSError = sum(wi .* (xi - xiHat).^2);
 end
+
+
