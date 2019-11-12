@@ -136,5 +136,3 @@ function [WLSError, pHat] = estimateAlphaBetaWithWLS(delta, xi, pi)
     xiHat = alphaHat * (-1 * log(1 - pi.^(1 / delta))).^(1 / betaHat);
     WLSError = sum(wi .* (xi - xiHat).^2);
 end
-
-
