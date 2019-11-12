@@ -1,1 +1,1 @@
-# exponentiated-weibull
+# Exponentiated Weibull distribution
