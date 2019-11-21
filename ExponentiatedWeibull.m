@@ -1,4 +1,4 @@
-% This software was written as part of the publication XXX. 
+% This software was written for the publication XXX. 
 
 classdef ExponentiatedWeibull < handle
 % The exponentiated Weibull distribution is a 3-parameter 
