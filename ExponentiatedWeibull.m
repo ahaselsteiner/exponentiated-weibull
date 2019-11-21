@@ -1,3 +1,5 @@
+% This software was written as part of the publication XXX. 
+
 classdef ExponentiatedWeibull < handle
 % The exponentiated Weibull distribution is a 3-parameter 
 % probability distribution. See, e.g. https://en.wikipedia.org/wiki/Exponentiated_Weibull_distribution
@@ -62,6 +64,8 @@ classdef ExponentiatedWeibull < handle
       
       function x = icdf(this, p)
           % Inverse cumulative distribution function.
+          p(p > 1) = NaN;
+          p(p < 0) = NaN;
           x = this.Alpha .* (-1 .* log(1 - p.^(1 ./ this.Delta))).^(1 ./ this.Beta);
       end
       
@@ -95,7 +99,7 @@ classdef ExponentiatedWeibull < handle
               set(0, 'currentfigure', qqFig);
               set(qqFig, 'currentaxes', qqAx);
           else
-              qqFig = figure();
+              figure();
           end
           if nargin < 4
               lineColor = [0 0 0];
@@ -110,6 +114,7 @@ classdef ExponentiatedWeibull < handle
           plot(xhati, xhati, 'color', lineColor, 'linewidth', 1.5);
           xlabel('Theoretical quantiles');
           ylabel('Ordered values');
+          ax = gca;
       end
    end
 end
