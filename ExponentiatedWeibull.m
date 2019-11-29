@@ -7,6 +7,9 @@ classdef ExponentiatedWeibull < handle
       Alpha % Scale parameter.
       Beta % Shape parameter #1.
       Delta % Shape parameter #2.
+      BootstrapParm % Parameters estimated using bootstrap.
+      ParameterSE % Parameters' standard error estimated using bootstrapping.
+      ParameterCI % Parameters'confidence interval standard error estimated using bootstrapping.
    end
    
    methods
@@ -18,15 +21,15 @@ classdef ExponentiatedWeibull < handle
          end
       end
       
-      function [pHat pConfI] = fitDist(this, sample, method)
-          if nargin < 2
+      function [pHat, pConfI] = fitDist(this, sample, method)
+          if nargin < 3
               method = 'MLE'; % Maximum likelihood estimation.
           end
           if method == 'MLE' % Maximum likelihood estimation.
               start = [1 1 5.001];
               lb = [0 0 0];
               ub = [100 100 100]; % MLE does not not converge for dataset A with limit (inf inf inf).
-              [pHat pConfI] = mle(sample, 'pdf', @(x, alpha, beta, delta) ...
+              [pHat, pConfI] = mle(sample, 'pdf', @(x, alpha, beta, delta) ...
                   this.pdf(sample, alpha, beta, delta), ...
                   'start', start, 'lower', lb, 'upper', ub);
           elseif method == 'WLS' % Weighted least squares.
@@ -46,6 +49,51 @@ classdef ExponentiatedWeibull < handle
           this.Delta = pHat(3);
       end
       
+      function [parmHat, pStd, pCi] = fitDistAndBootstrap(this, ...
+                sample, method, B, alpha)
+          % Estimates the parameters of the distribution and estimate the 
+          % parameters' uncertainty using bootstrapping.
+          %
+          % For bootstrapping, see, for example, "An introduction to the
+          % bootstrap" by B. Efron and R. J. Tibshirani (1993).
+          if nargin < 5
+              alpha = 0.05;
+          end
+                    bAlphas = nan(B, 1);
+          bBetas = nan(B, 1);
+          bDeltas = nan(B, 1);
+          for i = 1:B
+              bSample = datasample(sample, length(sample), 'replace', true);
+              bParmHat = this.fitDist(bSample, method);
+              bAlphas(i) = bParmHat(1);
+              bBetas(i) = bParmHat(2);
+              bDeltas(i) = bParmHat(3);
+          end
+         
+          % The index of the interval is chosen as in Efron and Tibshirani
+          % (1993), p. 160.
+          iLower = floor((B + 1) * (alpha / 2));
+          iUpper = B + 1 - iLower;
+          
+          % Compute the estimators' standard deviations, see Eq. 2.3 in 
+          % Efron and Tibshirani (1993).
+          pStd = [std(bAlphas), std(bBetas), std(bDeltas)];
+          
+          % Compute the 1 - alpha intervals based on bootstrap percentiles 
+          % (see Efron and Tibshirani (1993), pp. 168). 
+          sortedAlphas = sort(bAlphas);
+          sortedBetas = sort(bBetas);
+          sortedDeltas = sort(bDeltas);
+          pCi = ...
+              [sortedAlphas(iLower), sortedBetas(iLower), sortedDeltas(iLower);
+               sortedAlphas(iUpper), sortedBetas(iUpper), sortedDeltas(iUpper)];
+          
+          parmHat = this.fitDist(sample, method); % Calling fitDist also sets the class' parameters.
+          this.BootstrapParm = [bAlphas, bBetas, bDeltas];
+          this.ParameterSE = pStd;
+          this.ParameterCI = pCi;
+      end
+      
       function f = pdf(this, x, alpha, beta, delta)
           % Probability density function.
           pdf = @(x, alpha, beta, delta) delta .* beta ./ alpha .* (x ./ alpha).^(beta - 1) ...
@@ -59,6 +107,7 @@ classdef ExponentiatedWeibull < handle
       
       function F = cdf(this, x)
           % Cumulative distribution function.
+          x(x < 0) = NaN;
           F = (1 - exp( -1 .* (x ./ this.Alpha).^this.Beta)).^this.Delta;
       end
       
@@ -101,7 +150,7 @@ classdef ExponentiatedWeibull < handle
           else
               figure();
           end
-          if nargin < 4
+          if nargin < 5
               lineColor = [0 0 0];
           end
           n = length(sample);
