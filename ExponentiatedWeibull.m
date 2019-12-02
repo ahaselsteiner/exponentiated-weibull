@@ -107,7 +107,7 @@ classdef ExponentiatedWeibull < handle
       
       function F = cdf(this, x)
           % Cumulative distribution function.
-          x(x < 0) = NaN;
+          x(x < 0) = 0;
           F = (1 - exp( -1 .* (x ./ this.Alpha).^this.Beta)).^this.Delta;
       end
       
