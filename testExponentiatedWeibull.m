@@ -11,7 +11,7 @@ plot(x, f);
 message = sprintf(['In Pal et al. (2006), Fig. 1 \n' ...
      'the PDF peaks at ~2 m with density of ~0.45.']);
 text(2, 0.48, message, 'horizontalalignment', ...
-    'left', 'verticalalignment', 'bottom', 'fontsize', 8);add 
+    'left', 'verticalalignment', 'bottom', 'fontsize', 8); 
 ylabel('Density (-)');
 xlabel('Significant wave height (m)');
 box off
