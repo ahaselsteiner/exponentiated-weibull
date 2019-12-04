@@ -1,4 +1,7 @@
-% This software was written for the publication XXX. 
+% This software was written for the publication
+% "Predicting wave heights for marine design by prioritizing extreme 
+% events in a global model" by A.F. Haselsteiner and K-D. Thoben, see
+% https://arxiv.org/pdf/1911.12835.pdf .
 
 classdef ExponentiatedWeibull < handle
 % The exponentiated Weibull distribution is a 3-parameter 
