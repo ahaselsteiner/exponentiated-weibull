@@ -24,26 +24,55 @@ classdef ExponentiatedWeibull < handle
          end
       end
       
-      function [pHat, pConfI] = fitDist(this, sample, method)
+      function [pHat, pConfI] = fitDist(this, sample, method, varargin)
           if nargin < 3
               method = 'MLE'; % Maximum likelihood estimation.
           end
+          
+          p = inputParser;
+          addOptional(p,'alpha', nan, @isnumeric);
+          addOptional(p,'beta', nan, @isnumeric);
+          addOptional(p,'delta', nan, @isnumeric);
+          parse(p, varargin{:})
+          isFixed(1) = ~isnan(p.Results.alpha);
+          isFixed(2) = ~isnan(p.Results.beta);
+          isFixed(3) = ~isnan(p.Results.delta);
+            
           if method == 'MLE' % Maximum likelihood estimation.
               start = [1 1 5.001];
               lb = [0 0 0];
               ub = [100 100 100]; % MLE does not not converge for dataset A with limit (inf inf inf).
+              if sum(isFixed) == 0
               [pHat, pConfI] = mle(sample, 'pdf', @(x, alpha, beta, delta) ...
                   this.pdf(sample, alpha, beta, delta), ...
                   'start', start, 'lower', lb, 'upper', ub);
+              elseif sum(isFixed) == 1 || sum(isFixed) == 2
+                  error('Error. Not implemented yet.')
+              else
+                  error('Error. At least one parameter needs to be free to fit it.')
+              end
           elseif method == 'WLS' % Weighted least squares.
               n = length(sample);
               i = [1:n]';
               pi = (i - 0.5) ./ n;
               xi = sort(sample);
               delta0 = 2;
-              [deltaHat, WLSError] = fminsearch(@(delta) ...
-                  estimateAlphaBetaWithWLS(delta, xi, pi), delta0);
-              [temp, pHat] = estimateAlphaBetaWithWLS(deltaHat, xi, pi);
+              if sum(isFixed) == 0
+                  [deltaHat, WLSError] = fminsearch(@(delta) ...
+                      estimateAlphaBetaWithWLS(delta, xi, pi), delta0);
+                  [temp, pHat] = estimateAlphaBetaWithWLS(deltaHat, xi, pi);
+              elseif sum(isFixed) == 1
+                  if isFixed(3) == 1
+                      deltaHat = p.Results.delta;
+                      [temp, pHat] = estimateAlphaBetaWithWLS(deltaHat, xi, pi);
+                  else
+                      error('Error. Fixing alpha or beta is not implemented yet.')
+                  end
+              elseif sum(isFixed) == 2
+                  error('Error. Not implemented yet.')
+              else
+                  error('Error. At least one parameter needs to be free to fit it.')
+              end
           else
               error('Error. The input "method" must be either "MLE" or "WLS".')
           end
@@ -127,6 +156,13 @@ classdef ExponentiatedWeibull < handle
           end
           p = rand(n, 1);
           x = this.icdf(p);
+      end
+      
+      function mk = kMoment(this, k)
+          % kth moment of the distribution.
+          xk = @(x, k) this.icdf(x).^k;
+          fun = @(k) integral(@(x) xk(x, k), 0, 1);
+          mk = fun(k);
       end
       
       function val = negativeloglikelihood(this, x)
