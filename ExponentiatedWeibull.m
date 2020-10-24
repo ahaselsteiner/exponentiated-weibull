@@ -130,11 +130,15 @@ classdef ExponentiatedWeibull < handle
           % Probability density function.
           pdf = @(x, alpha, beta, delta) delta .* beta ./ alpha .* (x ./ alpha).^(beta - 1) ...
                 .* (1 - exp(-1 * (x ./ alpha).^beta)).^(delta - 1) .* exp(-1 .* (x ./ alpha).^beta);
-          if nargin < 3
-              f = pdf(x, this.Alpha, this.Beta, this.Delta);
+          if x <= 0
+              f = 0;
           else
-              f = pdf(x, alpha, beta, delta);
-          end              
+              if nargin < 3
+                  f = pdf(x, this.Alpha, this.Beta, this.Delta);
+              else
+                  f = pdf(x, alpha, beta, delta);
+              end       
+          end
       end
       
       function F = cdf(this, x)
