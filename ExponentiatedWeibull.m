@@ -162,11 +162,25 @@ classdef ExponentiatedWeibull < handle
           x = this.icdf(p);
       end
       
-      function mk = kMoment(this, k)
+      function mk = kMoment(this, k, doCentralMoment)
           % kth moment of the distribution.
+          % If doCentralMoment is true, the central moment is calculated, 
+          % otherwise the moment around 0. 
+          if nargin <= 2
+              doCentralMoment = true;
+          end
+          
           xk = @(x, k) this.icdf(x).^k;
           fun = @(k) integral(@(x) xk(x, k), 0, 1);
-          mk = fun(k);
+          if (doCentralMoment == false) || (k == 1)
+              mk = fun(k);
+          else
+              expectedValue = fun(1);            
+              xkCentral = @(x, k) (this.icdf(x) - expectedValue).^k;
+              funCentral = @(k) integral(@(x) xkCentral(x, k), 0, 1);
+              mk = funCentral(k);
+          end
+          
       end
       
       function val = negativeloglikelihood(this, x)
